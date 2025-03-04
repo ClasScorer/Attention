@@ -1,12 +1,36 @@
-FROM python:3.9-slim
+# Use a standard Python image instead of the pytorch-specific one for better compatibility
+FROM python:3.10-slim
 
+# Set working directory
 WORKDIR /app
 
-COPY ./app /app
-COPY requirements.txt /app/requirements.txt
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONFAULTHANDLER=1 \
+    PIP_NO_CACHE_DIR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=on
 
-RUN pip install --no-cache-dir -r /app/requirements.txt
+# Install system dependencies first (rarely change)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
-EXPOSE 8000
+# Copy and install Python dependencies first (these change less frequently than code)
+COPY requirements.txt .
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Install dependencies in a single layer to optimize caching
+# Install PyTorch first to avoid issues with other dependencies
+RUN pip install --no-cache-dir torch==1.13.1 torchvision==0.14.1 --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy application code (changes frequently)
+COPY . .
+
+# Set default port for the application
+EXPOSE 23123
+
+# Command to run the application
+CMD ["python", "app.py"]
