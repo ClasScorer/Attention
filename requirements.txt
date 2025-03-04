@@ -1,6 +1,7 @@
-fastapi
-torch
-torchvision
-uvicorn
-pillow
-kafka-python
+# Core dependencies
+torch>=1.10.0,<2.0.0
+numpy>=1.20.0,<2.0.0
+matplotlib>=3.5.0,<4.0.0
+Pillow>=9.0.0,<10.0.0
+retinaface>=0.0.5
+torchvision>=0.11.0,<0.15.0
