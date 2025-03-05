@@ -1,0 +1,15 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-py"
+}
+
+model AttentionSchema {
+  studentId  String   @id
+  lectureId  String
+  timestamp  DateTime 
+  attention  Float
+}
