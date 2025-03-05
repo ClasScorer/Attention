@@ -9,7 +9,7 @@ generator client {
 
 model AttentionSchema {
   studentId  String   @id
-  lectureId  String
-  timestamp  DateTime 
+  lectureId  String   @id
+  timestamp  DateTime @id
   attention  Float
 }
