@@ -1,0 +1,34 @@
+name: Build and Test Container
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        run: |
+          docker build -t my-app:latest .
+
+      - name: Run Container
+        run: |
+          docker run -d --name my-app-container my-app:latest
+          sleep 5 # Allow container to initialize
+
+      - name: Stop and Remove Container
+        run: |
+          docker stop my-app-container
+          docker rm my-app-container
