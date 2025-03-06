@@ -23,8 +23,7 @@ COPY requirements.txt .
 
 # Install dependencies in a single layer to optimize caching
 # Install PyTorch first to avoid issues with other dependencies
-RUN pip install --no-cache-dir torch==1.13.1 torchvision==0.14.1 --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code (changes frequently)
 COPY . .
