@@ -402,6 +402,7 @@ async def detect_face_attention(
         
         # Add face_id to result
         result["face_id"] = face_id
+        #TODO:Prisma add to database
         
         return FaceAttentionResponse(**result)
         
