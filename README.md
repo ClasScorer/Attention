@@ -1,4 +1,4 @@
-# Attention Detection API
+# Attention Detection
 
 ## Overview
 The **Attention Detection API** is a machine learning-based system that analyzes images of students to determine their attention levels in a classroom setting. It processes images using a deep learning model and stores results in a PostgreSQL database.
@@ -12,7 +12,7 @@ The **Attention Detection API** is a machine learning-based system that analyzes
 
 ## Project Structure
 ```
-📂 attention-detection-api
+📂 attention-detection
 ├── Dockerfile                 # Defines the container setup
 ├── docker-compose.yml         # Orchestrates services (API + Database)
 ├── app.py                     # Main FastAPI application
