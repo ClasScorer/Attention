@@ -7,9 +7,18 @@ generator client {
   provider = "prisma-client-py"
 }
 
+enum AttentionStatus {
+  FOCUSED
+  UNFOCUSED
+  NO_FACE_DETECTED
+}
+
 model AttentionSchema {
-  studentId  String   @id
-  lectureId  String   @id
-  timestamp  DateTime @id
-  attention  Float
+  studentId       String
+  lectureId       String
+  timestamp       DateTime
+  attentionStatus AttentionStatus
+  confidence      Float
+
+  @@id([studentId, lectureId, timestamp])
 }

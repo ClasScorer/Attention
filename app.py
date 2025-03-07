@@ -20,21 +20,30 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import time
 from datetime import datetime
+from prisma import Prisma
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configuration management
 class Settings(BaseSettings):
     app_name: str = "Attention Detection API"
     version: str = "1.0.0"
-    debug: bool = False
+    debug: bool = bool(os.getenv("APP_DEBUG", "False") == "True")
     allowed_origins: Set[str] = {"*"}
-    max_image_size: int = 10 * 1024 * 1024  # 10MB
-    inout_threshold: float = 0.5
+    max_image_size: int = int(os.getenv("APP_MAX_IMAGE_SIZE", str(10 * 1024 * 1024)))  # Default 10MB
+    inout_threshold: float = float(os.getenv("APP_INOUT_THRESHOLD", "0.5"))
+    database_url: str = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5432/db")
     
     class Config:
         env_prefix = "APP_"
+        env_file = ".env"
+        env_file_encoding = "utf-8"
 
 settings = Settings()
 limiter = Limiter(key_func=get_remote_address)
+prisma = Prisma()
 
 # Configure logging
 logging.basicConfig(
@@ -71,9 +80,9 @@ class AttentionStatus(str, Enum):
         UNFOCUSED: Person is looking away from the camera
         NO_FACE_DETECTED: No faces were detected in the image
     """
-    FOCUSED = "focused"
-    UNFOCUSED = "unfocused"
-    NO_FACE_DETECTED = "no face detected"
+    FOCUSED = "FOCUSED"
+    UNFOCUSED = "UNFOCUSED"
+    NO_FACE_DETECTED = "NO_FACE_DETECTED"
 
 # Simplified input and output models for cropped face images
 class FaceAttentionRequest(BaseModel):
@@ -81,6 +90,14 @@ class FaceAttentionRequest(BaseModel):
     face_id: str = Field(
         description="Unique identifier for the face", 
         example="user123"
+    )
+    lecture_id: str = Field(
+        description="Unique identifier for the lecture",
+        example="lecture123"
+    )
+    timestamp: datetime = Field(
+        description="Timestamp of the attention check",
+        example="2025-03-06T23:17:05.664Z"
     )
 
 class FaceAttentionResponse(BaseModel):
@@ -279,7 +296,7 @@ async def process_face_image(image):
         # Create response
         response = {
             "status": "success",
-            "attention_status": focus_status,
+            "attention_status": focus_status.value,
             "confidence": float(inout_score)
         }
         
@@ -288,6 +305,17 @@ async def process_face_image(image):
     except Exception as e:
         logger.error(f"Error processing face image: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.on_event("startup")
+async def startup():
+    """Initialize the model and database connection on startup"""
+    initialize_model()
+    await prisma.connect()
+
+@app.on_event("shutdown")
+async def shutdown():
+    """Close database connection on shutdown"""
+    await prisma.disconnect()
 
 @app.post("/detect-face-attention", 
          response_model=FaceAttentionResponse,
@@ -336,11 +364,13 @@ print(f"Attention: {result['attention_status']}")
 print(f"Confidence: {result['confidence']:.2f}")
 ```
          """)
-@limiter.limit("5/minute")
+@limiter.limit(os.getenv("APP_RATE_LIMIT", "5/minute"))
 async def detect_face_attention(
     request: Request, 
     file: UploadFile = File(...),
-    face_id: str = Form(...)
+    face_id: str = Form(...),
+    lecture_id: str = Form(...),
+    timestamp: str = Form(...)
 ) -> FaceAttentionResponse:
     """
     Detect attention from a cropped face image.
@@ -388,7 +418,7 @@ async def detect_face_attention(
                 detail="Invalid image file or format"
             )
         
-        # Check that image has reasonable dimensions for a face
+        # Check image dimensions
         width, height = image.size
         if width < 64 or height < 64:
             logger.warning(f"Image too small: {width}x{height} - Request ID: {request.state.request_id}")
@@ -397,13 +427,37 @@ async def detect_face_attention(
                 detail="Image dimensions too small. Minimum size is 64x64 pixels."
             )
         
+        # Process image with model
         result = await process_face_image(image)
         logger.info(f"Processed face image - Face ID: {face_id} - Request ID: {request.state.request_id}")
         
+        # Parse timestamp
+        try:
+            parsed_timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid timestamp format. Use ISO format (e.g., 2025-03-06T23:17:05.664Z)"
+            )
+
+        # Store result in database using the Prisma enum
+        try:
+            await prisma.attentionschema.create({
+                'studentId': face_id,
+                'lectureId': lecture_id,
+                'timestamp': parsed_timestamp,
+                'attentionStatus': result['attention_status'],
+                'confidence': result['confidence']
+            })
+        except Exception as e:
+            logger.error(f"Database error: {str(e)} - Request ID: {request.state.request_id}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to store attention data in database"
+            )
+
         # Add face_id to result
         result["face_id"] = face_id
-        #TODO:Prisma add to database
-        
         return FaceAttentionResponse(**result)
         
     except HTTPException:
