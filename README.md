@@ -127,10 +127,3 @@ on:
 - Build the Docker image
 - Run the container for testing
 
-## Contributing
-- Fork the repository
-- Create a feature branch (`git checkout -b feature-name`)
-- Commit changes (`git commit -m "Added new feature"`)
-- Push to GitHub (`git push origin feature-name`)
-- Open a **Pull Request**
-
