@@ -441,20 +441,20 @@ async def detect_face_attention(
             )
 
         # Store result in database using the Prisma enum
-        try:
-            await prisma.attentionschema.create({
-                'studentId': face_id,
-                'lectureId': lecture_id,
-                'timestamp': parsed_timestamp,
-                'attentionStatus': result['attention_status'],
-                'confidence': result['confidence']
-            })
-        except Exception as e:
-            logger.error(f"Database error: {str(e)} - Request ID: {request.state.request_id}")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to store attention data in database"
-            )
+        # try:
+        #     await prisma.attentionschema.create({
+        #         'studentId': face_id,
+        #         'lectureId': lecture_id,
+        #         'timestamp': parsed_timestamp,
+        #         'attentionStatus': result['attention_status'],
+        #         'confidence': result['confidence']
+        #     })
+        # except Exception as e:
+        #     logger.error(f"Database error: {str(e)} - Request ID: {request.state.request_id}")
+        #     raise HTTPException(
+        #         status_code=500,
+        #         detail="Failed to store attention data in database"
+        #     )
 
         # Add face_id to result
         result["face_id"] = face_id
