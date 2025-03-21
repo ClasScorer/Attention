@@ -236,10 +236,10 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
 # Add middleware to app
 app.add_middleware(RequestValidationMiddleware)
 
-def determine_focus_status(gaze_vector_length: float, face_diagonal: float) -> AttentionStatus:
+def determine_focus_status(inout_score: float, is_centered: bool) -> AttentionStatus:
     """Determine if the person is focused based on gaze vector length"""
     # For a cropped face image, we use a more constrained threshold since the face fills more of the image
-    return AttentionStatus.FOCUSED if gaze_vector_length < face_diagonal * 2 else AttentionStatus.UNFOCUSED
+    return AttentionStatus.FOCUSED if inout_score > 0.03 or is_centered else AttentionStatus.UNFOCUSED
 
 async def process_face_image(image):
     """
@@ -257,41 +257,37 @@ async def process_face_image(image):
         
         # For a cropped face image, we use the entire image as the bounding box [0,0,1,1]
         norm_bbox = [[0.0, 0.0, 1.0, 1.0]]
-        
-        # Prepare model input
+
+        # Prepare input
         img_tensor = transform(image).unsqueeze(0).to(device)
         model_input = {
             "images": img_tensor,
             "bboxes": [norm_bbox]
         }
-        
-        # Generate predictions
+
+        # Run inference
         with torch.no_grad():
             output = model(model_input)
-        
-        # Process results for the single face
+
         heatmap = output['heatmap'][0][0]
-        inout_score = output['inout'][0][0].item() if output['inout'] is not None else 0.5
-        
-        # Find max point in heatmap
+        inout_score = output['inout'][0][0].item() if output['inout'] is not None else None
+
+        # Get heatmap center
         heatmap_np = heatmap.detach().cpu().numpy()
-        max_index = np.unravel_index(np.argmax(heatmap_np), heatmap_np.shape)
-        gaze_target_y = max_index[0] / heatmap_np.shape[0] 
-        gaze_target_x = max_index[1] / heatmap_np.shape[1]
-        
-        # Since we're using the whole image, center is (0.5, 0.5)
-        center_x, center_y = 0.5, 0.5
-        
-        # Calculate vector length from center to gaze point
-        dx = gaze_target_x - center_x
-        dy = gaze_target_y - center_y
-        gaze_vector_length = np.sqrt(dx**2 + dy**2)
-        
-        # For a cropped face, face diagonal is 1.0 (normalized)
-        face_diagonal = np.sqrt(1.0**2 + 1.0**2)
+        heatmap_y, heatmap_x = np.unravel_index(np.argmax(heatmap_np), heatmap_np.shape)
+        heatmap_center_x = heatmap_x / heatmap_np.shape[1]
+        heatmap_center_y = heatmap_y / heatmap_np.shape[0]
+
+        # Define threshold for "centered" gaze
+        threshold = 0.4
+        is_centered = (
+            abs(heatmap_center_x - 0.5) < threshold and
+            abs(heatmap_center_y - 0.5) < threshold
+        )
+
         
         # Determine focus status
-        focus_status = determine_focus_status(gaze_vector_length, face_diagonal)
+        focus_status = determine_focus_status(inout_score, is_centered)
         
         # Create response
         response = {
