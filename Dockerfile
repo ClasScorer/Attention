@@ -16,20 +16,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libgl1-mesa-glx \
     libglib2.0-0 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install Python dependencies first (these change less frequently than code)
+# Copy only requirements files first to leverage Docker cache
 COPY requirements.txt .
 
 # Install dependencies in a single layer to optimize caching
-# Install PyTorch first to avoid issues with other dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Combine pip install with prisma install to reduce layers
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install prisma
 
 # Copy application code (changes frequently)
 COPY . .
+
+# Generate Prisma client - run after code is copied
+RUN prisma generate
 
 # Set default port for the application
 EXPOSE 23123
 
 # Command to run the application
-CMD ["python", "app.py"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "23123"]

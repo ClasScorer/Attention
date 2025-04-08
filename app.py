@@ -360,7 +360,7 @@ print(f"Attention: {result['attention_status']}")
 print(f"Confidence: {result['confidence']:.2f}")
 ```
          """)
-@limiter.limit(os.getenv("APP_RATE_LIMIT", "5/minute"))
+@limiter.limit(os.getenv("APP_RATE_LIMIT", "500/minute"))
 async def detect_face_attention(
     request: Request, 
     file: UploadFile = File(...),
